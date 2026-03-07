@@ -1,0 +1,172 @@
+package com.projet.gestion.evenementielle.service;
+
+import com.projet.gestion.evenementielle.dto.OrderRequest;
+import com.projet.gestion.evenementielle.entity.*;
+import com.projet.gestion.evenementielle.exception.ResourceNotFoundException;
+import com.projet.gestion.evenementielle.repository.EventRepository;
+import com.projet.gestion.evenementielle.repository.OrderRepository;
+import com.projet.gestion.evenementielle.repository.TicketTypeRepository;
+import com.projet.gestion.evenementielle.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Gère le cycle de vie complet d'une commande :
+ *   PENDING → LOCKED → PAYMENT_PENDING → CONFIRMED
+ *   A tout moment non-CONFIRMED : → CANCELLED
+ *   CONFIRMED → REFUNDED
+ *
+ * À la CONFIRMATION : déclenche la notification SMTP async.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final TicketTypeRepository ticketTypeRepository;
+    private final UserRepository userRepository;
+    private final EventRepository eventRepository;
+    private final RegistrationService registrationService;
+    private final EmailNotificationService emailService;
+
+    // ── 1. CRÉATION ──────────────────────────────────────────────────────────
+
+    @Transactional
+    public Order create(OrderRequest request, UUID userId) {
+        List<TicketType> ticketTypes = request.getTicketTypeIds().stream()
+                .map(ttId -> ticketTypeRepository.findById(ttId)
+                        .orElseThrow(() -> new ResourceNotFoundException("TicketType not found: " + ttId)))
+                .toList();
+
+        for (TicketType tt : ticketTypes) {
+            if (!tt.isAvailable()) {
+                throw new IllegalStateException("TicketType '" + tt.getName() + "' is sold out.");
+            }
+        }
+
+        float total = (float) ticketTypes.stream().mapToDouble(TicketType::getPrice).sum();
+
+        Order order = Order.builder()
+                .userId(userId)
+                .totalAmount(total)
+                .status(OrderStatus.PENDING)
+                .build();
+
+        return orderRepository.save(order);
+    }
+
+    // ── 2. VERROUILLAGE ──────────────────────────────────────────────────────
+
+    @Transactional
+    public Order lock(UUID orderId) {
+        Order order = getOrder(orderId);
+        order.lock();
+        return orderRepository.save(order);
+    }
+
+    // ── 3. PAIEMENT ──────────────────────────────────────────────────────────
+
+    @Transactional
+    public Order initiatePayment(UUID orderId) {
+        Order order = getOrder(orderId);
+        order.initPayment();
+        return orderRepository.save(order);
+    }
+
+    // ── 4. CONFIRMATION (paiement reçu) ──────────────────────────────────────
+
+    @Transactional
+    public Order confirm(UUID orderId, OrderRequest originalRequest) {
+        Order order = getOrder(orderId);
+        order.confirm();
+        orderRepository.save(order);
+
+        // Créer les inscriptions avec QR codes
+        List<Registration> registrations = registrationService.createForOrder(order, originalRequest.getTicketTypeIds());
+
+        // Incrémenter les quantités vendues et le compteur d'événement
+        originalRequest.getTicketTypeIds().forEach(ttId -> {
+            TicketType tt = ticketTypeRepository.findById(ttId)
+                    .orElseThrow(() -> new ResourceNotFoundException("TicketType not found: " + ttId));
+            tt.setSoldQuantity(tt.getSoldQuantity() + 1);
+            ticketTypeRepository.save(tt);
+
+            Event event = tt.getEvent();
+            event.setCurrentAttendees(event.getCurrentAttendees() + 1);
+            eventRepository.save(event);
+        });
+
+        // Envoyer les notifications SMTP
+        userRepository.findById(order.getUserId()).ifPresent(user -> {
+            String fullName = user.getFirstName() + " " + user.getLastName();
+
+            emailService.sendOrderConfirmation(
+                    user.getEmail(),
+                    fullName,
+                    order.getId().toString(),
+                    order.getTotalAmount()
+            );
+
+            registrations.forEach(reg ->
+                    emailService.sendRegistrationConfirmation(
+                            user.getEmail(),
+                            fullName,
+                            reg.getTicketType().getEvent().getTitle(),
+                            order.getId().toString(),
+                            order.getTotalAmount(),
+                            reg.getQrCode()
+                    )
+            );
+        });
+
+        return order;
+    }
+
+    // ── ANNULATION ───────────────────────────────────────────────────────────
+
+    @Transactional
+    public Order cancel(UUID orderId) {
+        Order order = getOrder(orderId);
+        order.cancel();
+        orderRepository.save(order);
+
+        userRepository.findById(order.getUserId()).ifPresent(user ->
+                emailService.sendOrderCancellation(
+                        user.getEmail(),
+                        user.getFirstName() + " " + user.getLastName(),
+                        order.getId().toString()
+                )
+        );
+        return order;
+    }
+
+    // ── REMBOURSEMENT ─────────────────────────────────────────────────────────
+
+    @Transactional
+    public Order refund(UUID orderId) {
+        Order order = getOrder(orderId);
+        order.refund();
+        return orderRepository.save(order);
+    }
+
+    // ── QUERIES ──────────────────────────────────────────────────────────────
+
+    public Order getOrder(UUID id) {
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
+    }
+
+    public List<Order> findByUser(UUID userId) {
+        return orderRepository.findByUserId(userId);
+    }
+
+    public List<Order> findAll() {
+        return orderRepository.findAll();
+    }
+}
