@@ -21,8 +21,7 @@ import java.util.UUID;
  *   At any non-CONFIRMED step: → CANCELLED
  *   CONFIRMED → REFUNDED
  *
- * On CONFIRMED: creates Registrations with QR codes.
- * Email notifications are handled by EmailNotificationService (Stage 7).
+ * On CONFIRMED: creates Registrations with QR codes and fires async SMTP notifications.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +33,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
     private final RegistrationService registrationService;
+    private final EmailNotificationService emailService;
 
     // ── 1. CRÉATION ──────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // Create registrations with QR codes
-        registrationService.createForOrder(order, originalRequest.getTicketTypeIds());
+        List<Registration> registrations = registrationService.createForOrder(order, originalRequest.getTicketTypeIds());
 
         // Update sold quantities and attendee counts
         originalRequest.getTicketTypeIds().forEach(ttId -> {
@@ -102,6 +102,29 @@ public class OrderService {
             eventRepository.save(event);
         });
 
+        // Async email notifications
+        userRepository.findById(order.getUserId()).ifPresent(user -> {
+            String fullName = user.getFirstName() + " " + user.getLastName();
+
+            emailService.sendOrderConfirmation(
+                    user.getEmail(),
+                    fullName,
+                    order.getId().toString(),
+                    order.getTotalAmount()
+            );
+
+            registrations.forEach(reg ->
+                    emailService.sendRegistrationConfirmation(
+                            user.getEmail(),
+                            fullName,
+                            reg.getTicketType().getEvent().getTitle(),
+                            order.getId().toString(),
+                            order.getTotalAmount(),
+                            reg.getQrCode()
+                    )
+            );
+        });
+
         return order;
     }
 
@@ -111,7 +134,16 @@ public class OrderService {
     public Order cancel(UUID orderId) {
         Order order = getOrder(orderId);
         order.cancel();
-        return orderRepository.save(order);
+        orderRepository.save(order);
+
+        userRepository.findById(order.getUserId()).ifPresent(user ->
+                emailService.sendOrderCancellation(
+                        user.getEmail(),
+                        user.getFirstName() + " " + user.getLastName(),
+                        order.getId().toString()
+                )
+        );
+        return order;
     }
 
     // ── REMBOURSEMENT ─────────────────────────────────────────────────────────
