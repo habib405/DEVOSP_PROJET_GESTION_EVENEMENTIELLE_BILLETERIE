@@ -47,15 +47,15 @@ services:
     volumes:
       - pgadmin-data:/var/lib/pgadmin
 
-  # front:
-  #   build:
-  #     context: ./front
-  #     dockerfile: Dockerfile
-  #   container_name: billeterie-front
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - back
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: billeterie-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - back
 
 volumes:
   postgres-data:
