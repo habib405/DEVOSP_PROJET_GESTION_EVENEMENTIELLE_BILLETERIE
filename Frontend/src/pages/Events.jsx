@@ -30,7 +30,8 @@ export default function Events() {
     const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
     const loadEventsWithRetry = async () => {
-      const maxAttempts = 5
+      // Backend may need extra warmup time on first Docker boot.
+      const maxAttempts = 25
 
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         try {
@@ -49,7 +50,7 @@ export default function Events() {
             }
             return
           }
-          await wait(1200)
+          await wait(2000)
         }
       }
     }
