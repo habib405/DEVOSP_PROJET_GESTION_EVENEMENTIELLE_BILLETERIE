@@ -31,4 +31,4 @@ RUN echo 'server { \
 }' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["sh", "-c", "until wget -q --spider http://back:8081/api/events; do echo 'Waiting for backend...'; sleep 2; done; exec nginx -g 'daemon off;'"]
