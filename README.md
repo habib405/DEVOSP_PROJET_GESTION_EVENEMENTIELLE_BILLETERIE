@@ -11,7 +11,7 @@ Le projet met l'accent sur les bonnes pratiques de développement logiciel : arc
 Le dépôt est structuré de la manière suivante pour séparer clairement les responsabilités :
 
 * 📁 **`back/`** : API REST développée en Java avec Spring Boot 3 et Spring Security (JWT).
-* 📁 **`front/`** : Interface utilisateur (développement en cours).
+* 📁 **`Frontend/`** : Interface utilisateur React/Vite.
 * 📁 **`data/`** : Scripts d'initialisation et configuration de la base de données PostgreSQL.
 * 📄 **`docker-compose.yml`** : Fichier d'orchestration pour lancer l'ensemble de l'environnement (Base de données, Backend, Frontend) en une seule commande.
 
@@ -35,5 +35,41 @@ L'application est entièrement conteneurisée. Vous n'avez pas besoin d'installe
 
 1. Clonez le dépôt :
    ```bash
-   git clone [https://github.com/habib405/DEVOSP_PROJET_GESTION_EVENEMENTIELLE_BILLETERIE.git](https://github.com/habib405/DEVOSP_PROJET_GESTION_EVENEMENTIELLE_BILLETERIE.git)
+   git clone https://github.com/habib405/DEVOSP_PROJET_GESTION_EVENEMENTIELLE_BILLETERIE.git
    cd DEVOSP_PROJET_GESTION_EVENEMENTIELLE_BILLETERIE
+   ```
+
+2. Lancez toute la stack Docker :
+   ```bash
+   docker compose up --build -d
+   ```
+
+3. Vérifiez les services :
+   ```bash
+   docker compose ps
+   ```
+
+4. Ouvrez l'application :
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8081`
+- pgAdmin: `http://localhost:5050`
+- PostgreSQL: `localhost:5430`
+
+5. Arrêtez la stack :
+   ```bash
+   docker compose down
+   ```
+
+---
+
+## Dépannage Docker
+
+Si `docker compose up` échoue avec une erreur `port is already allocated` :
+
+1. Identifiez le processus ou container qui utilise le port (`3000`, `8081`, `5050`, `5430`).
+2. Libérez le port concerné.
+3. Relancez :
+   ```bash
+   docker compose up --build -d
+   ```
