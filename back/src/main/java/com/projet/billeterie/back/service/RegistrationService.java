@@ -6,6 +6,7 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.projet.billeterie.back.entity.*;
 import com.projet.billeterie.back.exception.ResourceNotFoundException;
+import com.projet.billeterie.back.repository.EventRepository;
 import com.projet.billeterie.back.repository.RegistrationRepository;
 import com.projet.billeterie.back.repository.TicketTypeRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class RegistrationService {
 
     private final RegistrationRepository registrationRepository;
     private final TicketTypeRepository ticketTypeRepository;
+    private final EventRepository eventRepository;
 
     /**
      * Creates one Registration per ticket-type ID and generates its QR code.
@@ -68,6 +70,28 @@ public class RegistrationService {
     @Transactional
     public Registration cancel(UUID id) {
         Registration reg = findById(id);
+
+        if (reg.getStatus() == RegistrationStatus.CANCELLED) {
+            throw new IllegalStateException("Registration is already cancelled");
+        }
+
+        // ── Decrement soldQuantity on TicketType ──────────────────────────────
+        TicketType tt = reg.getTicketType();
+        if (tt != null && tt.getSoldQuantity() > 0) {
+            tt.setSoldQuantity(tt.getSoldQuantity() - 1);
+            ticketTypeRepository.save(tt);
+        }
+
+        // ── Decrement currentAttendees on Event ───────────────────────────────
+        if (reg.getEventId() != null) {
+            eventRepository.findById(reg.getEventId()).ifPresent(event -> {
+                if (event.getCurrentAttendees() > 0) {
+                    event.setCurrentAttendees(event.getCurrentAttendees() - 1);
+                    eventRepository.save(event);
+                }
+            });
+        }
+
         reg.cancel();
         return registrationRepository.save(reg);
     }
