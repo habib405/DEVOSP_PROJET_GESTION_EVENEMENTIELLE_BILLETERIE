@@ -25,17 +25,44 @@ export default function Events() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const { data } = isOrganizer ? await eventsAPI.getAll() : await eventsAPI.getPublished()
-        setEvents(Array.isArray(data) ? data : [])
-      } catch {
-        setError('Failed to load events.')
-      } finally {
-        setLoading(false)
+    let cancelled = false
+
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+    const loadEventsWithRetry = async () => {
+      const maxAttempts = 5
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const { data } = isOrganizer ? await eventsAPI.getAll() : await eventsAPI.getPublished()
+          if (!cancelled) {
+            setEvents(Array.isArray(data) ? data : [])
+            setError('')
+            setLoading(false)
+          }
+          return
+        } catch {
+          if (attempt === maxAttempts) {
+            if (!cancelled) {
+              setError('Failed to load events.')
+              setLoading(false)
+            }
+            return
+          }
+          await wait(1200)
+        }
       }
     }
+
+    const fetchEvents = async () => {
+      await loadEventsWithRetry()
+    }
+
     fetchEvents()
+
+    return () => {
+      cancelled = true
+    }
   }, [isOrganizer])
 
   const filtered = events.filter(e =>
