@@ -28,7 +28,7 @@ export default function Events() {
     const fetchEvents = async () => {
       try {
         const { data } = isOrganizer ? await eventsAPI.getAll() : await eventsAPI.getPublished()
-        setEvents(data)
+        setEvents(Array.isArray(data) ? data : [])
       } catch {
         setError('Failed to load events.')
       } finally {
