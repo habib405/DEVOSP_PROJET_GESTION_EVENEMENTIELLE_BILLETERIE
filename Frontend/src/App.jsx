@@ -27,6 +27,12 @@ function Layout({ children }) {
   )
 }
 
+function Home() {
+  const { user } = useAuth()
+  if (!user) return <Navigate to="/login" replace />
+  return <Navigate to="/events" replace />
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -37,13 +43,21 @@ export default function App() {
           <Route path="/register" element={<Register />} />
 
           {/* Routes with Navbar */}
-          <Route path="/events" element={<Layout><Events /></Layout>} />
+          <Route path="/events" element={
+            <Layout>
+              <ProtectedRoute><Events /></ProtectedRoute>
+            </Layout>
+          } />
           <Route path="/events/create" element={
             <Layout>
               <ProtectedRoute><CreateEvent /></ProtectedRoute>
             </Layout>
           } />
-          <Route path="/events/:id" element={<Layout><EventDetail /></Layout>} />
+          <Route path="/events/:id" element={
+            <Layout>
+              <ProtectedRoute><EventDetail /></ProtectedRoute>
+            </Layout>
+          } />
 
           <Route path="/my-tickets" element={
             <Layout>
@@ -57,8 +71,11 @@ export default function App() {
             </Layout>
           } />
 
+          {/* Home - redirects to login if not authenticated */}
+          <Route path="/" element={<Home />} />
+
           {/* Default redirect */}
-          <Route path="*" element={<Navigate to="/events" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
