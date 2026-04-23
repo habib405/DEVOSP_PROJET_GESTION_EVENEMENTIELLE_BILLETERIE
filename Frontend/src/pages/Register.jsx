@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import Toast from '../components/Toast'
 
 const ROLES = ['ATTENDEE', 'ORGANIZER']
 
@@ -10,20 +11,22 @@ export default function Register() {
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', password: '', role: 'ATTENDEE'
   })
-  const [error, setError] = useState('')
+  const [toast, setToast] = useState({ message: '', type: 'error' })
   const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
+    setToast({ message: '', type: 'error' })
     setLoading(true)
     try {
       await register(form)
-      navigate('/events')
+      setToast({ message: 'Account created successfully!', type: 'success' })
+      setTimeout(() => navigate('/events'), 500)
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.')
+      const message = err.response?.data?.message || 'Registration failed. Please try again.'
+      setToast({ message, type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -36,6 +39,7 @@ export default function Register() {
       background: 'radial-gradient(ellipse at top, #161208 0%, var(--bg) 60%)',
       padding: 24,
     }}>
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'error' })} />
       <div className="fade-in" style={{ width: '100%', maxWidth: 440 }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{
@@ -51,7 +55,6 @@ export default function Register() {
 
         <div className="card" style={{ padding: 32 }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {error && <div className="error-msg">{error}</div>}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className="input-group">

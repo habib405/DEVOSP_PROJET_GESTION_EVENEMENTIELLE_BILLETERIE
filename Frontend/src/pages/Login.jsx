@@ -1,25 +1,28 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import Toast from '../components/Toast'
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
+  const [toast, setToast] = useState({ message: '', type: 'error' })
   const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
+    setToast({ message: '', type: 'error' })
     setLoading(true)
     try {
       await login(form.email, form.password)
-      navigate('/events')
+      setToast({ message: 'Signed in successfully!', type: 'success' })
+      setTimeout(() => navigate('/events'), 500)
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials.')
+      const message = err.response?.data?.message || 'Invalid credentials.'
+      setToast({ message, type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -32,6 +35,7 @@ export default function Login() {
       background: 'radial-gradient(ellipse at top, #161208 0%, var(--bg) 60%)',
       padding: 24,
     }}>
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'error' })} />
       <div className="fade-in" style={{ width: '100%', maxWidth: 400 }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
@@ -48,7 +52,6 @@ export default function Login() {
 
         <div className="card" style={{ padding: 32 }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {error && <div className="error-msg">{error}</div>}
 
             <div className="input-group">
               <label>Email</label>

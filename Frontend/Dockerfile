@@ -25,8 +25,14 @@ RUN echo 'server { \
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
     proxy_set_header X-Forwarded-Proto $scheme; \
   } \
+  location = /index.html { \
+    add_header Cache-Control "no-cache, no-store, must-revalidate"; \
+    add_header Pragma "no-cache"; \
+    add_header Expires "0"; \
+  } \
   location / { \
     try_files $uri $uri/ /index.html; \
+    add_header Cache-Control "no-cache, no-store, must-revalidate"; \
   } \
 }' > /etc/nginx/conf.d/default.conf
 

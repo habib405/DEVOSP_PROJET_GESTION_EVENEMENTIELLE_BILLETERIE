@@ -5,7 +5,21 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('user')) } catch { return null }
+    try {
+      const token = localStorage.getItem('token')
+      const userData = localStorage.getItem('user')
+      // Both token and user must exist to be considered authenticated
+      if (!token || !userData) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        return null
+      }
+      return JSON.parse(userData)
+    } catch {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      return null
+    }
   })
 
   const login = useCallback(async (email, password) => {

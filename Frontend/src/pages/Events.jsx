@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { eventsAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import Toast from '../components/Toast'
 
 const STATUS_COLORS = {
   PUBLISHED: 'badge-published',
@@ -22,6 +23,7 @@ export default function Events() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [toast, setToast] = useState({ message: '', type: 'error' })
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -45,7 +47,9 @@ export default function Events() {
         } catch {
           if (attempt === maxAttempts) {
             if (!cancelled) {
-              setError('Failed to load events.')
+              const msg = 'Failed to load events.'
+              setError(msg)
+              setToast({ message: msg, type: 'error' })
               setLoading(false)
             }
             return
@@ -74,7 +78,9 @@ export default function Events() {
   if (loading) return <div className="loading"><div className="spinner" /> Loading events...</div>
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }} className="fade-in">
+    <>
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'error' })} />
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }} className="fade-in">
       {/* Hero */}
       <div style={{ marginBottom: 48, textAlign: 'center' }}>
         <h1 style={{ fontSize: 52, lineHeight: 1.1, marginBottom: 12 }}>
@@ -121,7 +127,8 @@ export default function Events() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }
 
