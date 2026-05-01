@@ -41,4 +41,8 @@ public class FraudMonitoringService {
         return fraudRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("FraudMonitoring record not found: " + id));
     }
+
+    public List<FraudMonitoring> getAllFraud() {
+        return fraudRepository.findAllByOrderByScoreAnomalieDesc();
+    }
 }

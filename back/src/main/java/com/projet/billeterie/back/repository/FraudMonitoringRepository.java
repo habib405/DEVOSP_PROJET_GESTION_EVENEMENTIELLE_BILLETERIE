@@ -7,5 +7,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface FraudMonitoringRepository extends JpaRepository<FraudMonitoring, UUID> {
+
+    List<FraudMonitoring> findAllByOrderByScoreAnomalieDesc();
+
     List<FraudMonitoring> findByOrderId(UUID orderId);
 }

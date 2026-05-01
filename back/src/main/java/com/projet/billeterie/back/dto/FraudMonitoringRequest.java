@@ -10,7 +10,7 @@ import java.util.UUID;
 @Data
 public class FraudMonitoringRequest {
     @NotNull  private UUID orderId;
-    @NotNull  private Float scoreAnomalie;
+    @NotNull  private Double scoreAnomalie;
     @NotBlank private String typeFraude;
     private LocalDateTime detectedAt;
 }

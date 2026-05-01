@@ -12,23 +12,19 @@ import java.util.UUID;
 public class FraudMonitoring {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
-    private UUID orderId;
-
-    @Column(nullable = false)
-    private Float scoreAnomalie;
-
-    @Column(nullable = false)
-    private String typeFraude;
-
-    @Column(nullable = false)
+    @Column(name = "detected_at")
     private LocalDateTime detectedAt;
 
-    @PrePersist
-    protected void onCreate() {
-        if (this.detectedAt == null) this.detectedAt = LocalDateTime.now();
-    }
+    @Column(name = "order_id")
+    private UUID orderId;
+
+    @Column(name = "score_anomalie")
+    private Double scoreAnomalie;
+
+    @Column(name = "type_fraude")
+    private String typeFraude;
+
+    // getters / setters
 }
