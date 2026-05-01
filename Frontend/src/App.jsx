@@ -8,6 +8,8 @@ import EventDetail from './pages/EventDetail'
 import MyTickets from './pages/MyTickets'
 import AdminDashboard from './pages/AdminDashboard'
 import CreateEvent from './pages/CreateEvent'
+import PaymentSuccess from './pages/PaymentSuccess'
+import PaymentCancel from './pages/PaymentCancel'
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, isAdmin } = useAuth()
@@ -68,6 +70,18 @@ export default function App() {
           <Route path="/admin" element={
             <Layout>
               <ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>
+            </Layout>
+          } />
+
+          {/* Stripe Checkout return URLs */}
+          <Route path="/payment/success" element={
+            <Layout>
+              <ProtectedRoute><PaymentSuccess /></ProtectedRoute>
+            </Layout>
+          } />
+          <Route path="/payment/cancel" element={
+            <Layout>
+              <ProtectedRoute><PaymentCancel /></ProtectedRoute>
             </Layout>
           } />
 

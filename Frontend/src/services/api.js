@@ -75,6 +75,19 @@ export const ordersAPI = {
   refund: (id) => api.patch(`/orders/${id}/refund`),  // ADMIN only
 }
 
+// ─── PAYMENTS (Stripe Sandbox) ───────────────────────────────────────────────
+export const paymentsAPI = {
+  // Creates a Stripe Checkout session for an existing order.
+  // Returns { sessionId, checkoutUrl }
+  checkout: (orderId, ticketTypeIds) =>
+    api.post('/payments/checkout', { orderId, ticketTypeIds }),
+
+  // Called after Stripe redirects back with ?session_id=...
+  // Confirms the order, generates registrations + QR + invoice PDF email.
+  finalize: (sessionId) =>
+    api.post(`/payments/finalize?session_id=${encodeURIComponent(sessionId)}`),
+}
+
 // ─── REGISTRATIONS ───────────────────────────────────────────────────────────
 export const registrationsAPI = {
   getMy: () => api.get('/registrations/my'),

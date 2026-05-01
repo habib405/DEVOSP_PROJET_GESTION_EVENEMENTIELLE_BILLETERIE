@@ -30,6 +30,11 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # ── Stripe (test/sandbox) — set these in your shell or .env file ──
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_51REPLACEME}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_51REPLACEME}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-http://localhost:3000/payment/cancel}
     depends_on:
       postgres:
         condition: service_healthy
