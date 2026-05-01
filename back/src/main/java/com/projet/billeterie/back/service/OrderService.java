@@ -34,6 +34,7 @@ public class OrderService {
     private final EventRepository eventRepository;
     private final RegistrationService registrationService;
     private final EmailNotificationService emailService;
+    private final InvoiceService invoiceService;
 
     // ── 1. CRÉATION ──────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ public class OrderService {
             eventRepository.save(event);
         });
 
-        // Async email notifications
+        // Async email notifications + PDF invoice
         userRepository.findById(order.getUserId()).ifPresent(user -> {
             String fullName = user.getFirstName() + " " + user.getLastName();
 
@@ -112,6 +113,20 @@ public class OrderService {
                     order.getId().toString(),
                     order.getTotalAmount()
             );
+
+            // Generate PDF invoice and send attached
+            try {
+                byte[] invoicePdf = invoiceService.generate(order, user, originalRequest.getTicketTypeIds());
+                emailService.sendInvoiceEmail(
+                        user.getEmail(),
+                        fullName,
+                        order.getId().toString(),
+                        order.getTotalAmount(),
+                        invoicePdf
+                );
+            } catch (Exception ex) {
+                log.error("Could not generate/send invoice for order {}: {}", order.getId(), ex.getMessage());
+            }
 
             registrations.forEach(reg ->
                     emailService.sendRegistrationConfirmation(

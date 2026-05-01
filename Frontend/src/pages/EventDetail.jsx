@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { eventsAPI, ticketTypesAPI, ordersAPI } from '../services/api'
+import { eventsAPI, ticketTypesAPI, ordersAPI, paymentsAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
 function formatDate(d) {
@@ -118,13 +118,15 @@ export default function EventDetail() {
     setProcessing(true)
     setPurchaseError('')
     try {
-      await ordersAPI.lock(order.id)
-      await ordersAPI.pay(order.id)
-      await ordersAPI.confirm(order.id, selectedItems)
-      setStep(2)
+      // Persist context so the success page can show details
+      localStorage.setItem('pendingOrderId', order.id)
+      localStorage.setItem('pendingTicketTypeIds', JSON.stringify(selectedItems))
+
+      const { data } = await paymentsAPI.checkout(order.id, selectedItems)
+      // Redirect to Stripe-hosted Checkout (sandbox)
+      window.location.href = data.checkoutUrl
     } catch (e) {
-      setPurchaseError(e.response?.data?.message || 'Payment failed. Please try again.')
-    } finally {
+      setPurchaseError(e.response?.data?.message || 'Could not start payment. Please try again.')
       setProcessing(false)
     }
   }
@@ -356,13 +358,15 @@ function ReviewStep({ ticketTypes, quantities, total, order, onConfirm, onBack, 
         </div>
       </div>
       <div style={{ padding: 12, background: 'rgba(201,168,76,0.06)', borderRadius: 6, border: '1px solid rgba(201,168,76,0.2)', fontSize: 13, color: 'var(--text-muted)' }}>
-        📧 Tickets and QR codes will be sent to your email after confirmation.
+        💳 Paiement sécurisé via Stripe (sandbox).<br/>
+        Carte test : <code>4242 4242 4242 4242</code> · date future · CVC libre.<br/>
+        📧 Une facture PDF + vos billets QR seront envoyés par email.
       </div>
       {error && <div className="error-msg">{error}</div>}
       <div style={{ display: 'flex', gap: 10 }}>
         <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onBack} disabled={processing}>← Back</button>
         <button className="btn btn-gold" style={{ flex: 2, justifyContent: 'center' }} onClick={onConfirm} disabled={processing}>
-          {processing ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Confirming...</> : 'Confirm & Pay'}
+          {processing ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Redirecting to Stripe...</> : 'Pay with Stripe →'}
         </button>
       </div>
     </div>
