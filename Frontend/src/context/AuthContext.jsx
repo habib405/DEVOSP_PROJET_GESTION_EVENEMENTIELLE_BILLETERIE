@@ -44,9 +44,9 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
-  const isAdmin = user?.role === 'ADMIN'
-  const isOrganizer = user?.role === 'ORGANIZER' || user?.role === 'ADMIN'
-  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN'
+  const isAdmin = user?.role === 'ORGANIZER'  // ORGANIZER is the admin role in this system
+  const isOrganizer = user?.role === 'ORGANIZER'
+  const isStaff = user?.role === 'STAFF' || user?.role === 'ORGANIZER'
 
   return (
     <AuthContext.Provider value={{ user, login, register, logout, isAdmin, isOrganizer, isStaff }}>
