@@ -22,6 +22,13 @@ public class FraudMonitoringController {
     @GetMapping
     public List<FraudMonitoring> getAll() { return fraudService.findAll(); }
 
+    @GetMapping("/pending-review")
+    public org.springframework.data.domain.Page<FraudMonitoring> pendingReview(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return fraudService.findPendingReview(page, size);
+    }
+
     @GetMapping("/order/{orderId}")
     public List<FraudMonitoring> byOrder(@PathVariable UUID orderId) {
         return fraudService.findByOrder(orderId);
@@ -33,5 +40,12 @@ public class FraudMonitoringController {
     @PostMapping
     public ResponseEntity<FraudMonitoring> create(@Valid @RequestBody FraudMonitoringRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(fraudService.create(request));
+    }
+
+    @PostMapping("/{id}/false-positive")
+    public ResponseEntity<FraudMonitoring> markFalsePositive(@PathVariable UUID id,
+                                                            @RequestParam(required = false) String comment) {
+        FraudMonitoring updated = fraudService.markFalsePositive(id, comment != null ? comment : "marked via API");
+        return ResponseEntity.ok(updated);
     }
 }

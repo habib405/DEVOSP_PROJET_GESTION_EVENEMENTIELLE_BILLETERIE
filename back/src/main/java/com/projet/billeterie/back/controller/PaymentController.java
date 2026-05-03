@@ -17,6 +17,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,6 +47,7 @@ public class PaymentController {
     private final StripeService stripeService;
     private final OrderService orderService;
     private final UserRepository userRepository;
+    private final com.projet.billeterie.back.service.FraudScorer fraudScorer;
 
     @PostMapping("/checkout")
     public ResponseEntity<CheckoutResponse> createCheckout(@Valid @RequestBody CheckoutRequest req,
@@ -61,6 +64,15 @@ public class PaymentController {
         }
         if (order.getStatus() == OrderStatus.LOCKED) {
             order = orderService.initiatePayment(order.getId());
+        }
+
+        // Run fraud scoring before creating the external checkout session.
+        double fraudScore = fraudScorer.score(order);
+        if (fraudScorer.shouldBlock(order)) {
+            // release reserved tickets
+            orderService.cancel(order.getId());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Payment blocked by fraud check (score=" + String.format("%.3f", fraudScore) + ")");
         }
 
         Session session = stripeService.createCheckoutSession(order, req.getTicketTypeIds(), user.getEmail());

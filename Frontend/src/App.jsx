@@ -7,6 +7,7 @@ import Events from './pages/Events'
 import EventDetail from './pages/EventDetail'
 import MyTickets from './pages/MyTickets'
 import AdminDashboard from './pages/AdminDashboard'
+import FraudAdmin from './pages/FraudAdmin'
 import CreateEvent from './pages/CreateEvent'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentCancel from './pages/PaymentCancel'
@@ -70,6 +71,11 @@ export default function App() {
           <Route path="/admin" element={
             <Layout>
               <ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>
+            </Layout>
+          } />
+          <Route path="/admin/fraud" element={
+            <Layout>
+              <ProtectedRoute adminOnly><FraudAdmin /></ProtectedRoute>
             </Layout>
           } />
 
