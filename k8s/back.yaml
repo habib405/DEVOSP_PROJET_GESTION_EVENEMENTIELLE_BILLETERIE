@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: back
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: back
+  template:
+    metadata:
+      labels:
+        app: back
+    spec:
+      containers:
+        - name: back
+          image: your-dockerhub-username/billeterie-back:latest # À remplacer par votre image
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/postgres
+            - name: SPRING_DATASOURCE_USERNAME
+              value: postgres
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: postgres
+            - name: STRIPE_SECRET_KEY
+              value: "sk_test_51TSHJbAuRLwOSs0NyFUn3qJjK76HQT9Mo2qQGESxQPEmo3aO2gQOvPApfquzavRwNLXmP4GQiMbBb9kM2QR9ITXu00sTt5CVKr"
+            - name: STRIPE_PUBLISHABLE_KEY
+              value: "pk_test_51REPLACEME"
+            - name: STRIPE_SUCCESS_URL
+              value: "http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}"
+            - name: STRIPE_CANCEL_URL
+              value: "http://localhost:3000/payment/cancel"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: back
+spec:
+  selector:
+    app: back
+  ports:
+    - port: 8081
+      targetPort: 8081
+  type: ClusterIP

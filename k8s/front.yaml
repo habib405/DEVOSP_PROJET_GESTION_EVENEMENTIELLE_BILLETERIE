@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: front
+  template:
+    metadata:
+      labels:
+        app: front
+    spec:
+      containers:
+        - name: front
+          image: ton-dockerhub/billeterie-frontend:latest # Pense à mettre ton vrai nom d'image
+          ports:
+            - containerPort: 3000
+          imagePullPolicy: Never # Si tu testes en local avec Docker Desktop
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-service
+spec:
+  selector:
+    app: front
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+      nodePort: 30000 # Tu pourras accéder au site via http://localhost:30000
+  type: NodePort
