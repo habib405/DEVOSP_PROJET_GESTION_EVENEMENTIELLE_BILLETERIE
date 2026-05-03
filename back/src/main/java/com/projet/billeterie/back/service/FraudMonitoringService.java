@@ -5,6 +5,8 @@ import com.projet.billeterie.back.entity.FraudMonitoring;
 import com.projet.billeterie.back.exception.ResourceNotFoundException;
 import com.projet.billeterie.back.repository.FraudMonitoringRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,8 +39,26 @@ public class FraudMonitoringService {
         return fraudRepository.findByOrderId(orderId);
     }
 
+    public List<FraudMonitoring> findPendingReview() {
+        return fraudRepository.findByFalsePositiveFalse();
+    }
+
     public FraudMonitoring findById(UUID id) {
         return fraudRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("FraudMonitoring record not found: " + id));
+    }
+
+    public Page<FraudMonitoring> findPendingReview(int page, int size) {
+        return fraudRepository.findByFalsePositiveFalse(PageRequest.of(page, size));
+    }
+
+    @Transactional
+    public FraudMonitoring markFalsePositive(UUID id, String comment) {
+        FraudMonitoring rec = fraudRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("FraudMonitoring record not found: " + id));
+        rec.setFalsePositive(true);
+        rec.setReviewedAt(LocalDateTime.now());
+        rec.setReviewComment(comment);
+        return fraudRepository.save(rec);
     }
 }

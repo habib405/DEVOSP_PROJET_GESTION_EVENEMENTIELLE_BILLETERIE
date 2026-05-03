@@ -14,10 +14,10 @@ spec:
     spec:
       containers:
         - name: front
-          image: ton-dockerhub/billeterie-frontend:latest # Pense à mettre ton vrai nom d'image
+          image: devosp_projet_gestion_evenementielle_billeterie-frontend:latest
+          
           ports:
             - containerPort: 3000
-          imagePullPolicy: Never # Si tu testes en local avec Docker Desktop
 ---
 apiVersion: v1
 kind: Service
@@ -30,5 +30,5 @@ spec:
     - protocol: TCP
       port: 3000
       targetPort: 3000
-      nodePort: 30000 # Tu pourras accéder au site via http://localhost:30000
+      nodePort: 30000
   type: NodePort

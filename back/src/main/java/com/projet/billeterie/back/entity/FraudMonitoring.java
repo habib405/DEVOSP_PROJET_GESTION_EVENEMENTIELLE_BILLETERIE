@@ -27,6 +27,13 @@ public class FraudMonitoring {
     @Column(nullable = false)
     private LocalDateTime detectedAt;
 
+    @Column(nullable = false)
+    private Boolean falsePositive = false;
+
+    private LocalDateTime reviewedAt;
+
+    private String reviewComment;
+
     @PrePersist
     protected void onCreate() {
         if (this.detectedAt == null) this.detectedAt = LocalDateTime.now();

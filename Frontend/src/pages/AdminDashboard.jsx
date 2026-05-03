@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { eventsAPI, venuesAPI, fraudAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
-const TABS = ['Events', 'Venues', 'Fraud Monitoring']
+const TABS = ['Events', 'Venues']
 
 export default function AdminDashboard() {
   const { isAdmin } = useAuth()
@@ -205,12 +205,18 @@ function AdminFraud() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fraudAPI.getAll()
-      .then(({ data }) => setFrauds(data))
+    fraudAPI.getPending()
+      .then(({ data }) => setFrauds(data.content || data))
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div className="loading"><div className="spinner" /></div>
+
+  const markFP = async (id) => {
+    if (!confirm('Mark this alert as false-positive?')) return
+    await fraudAPI.markFalsePositive(id)
+    setFrauds(fs => fs.filter(f => f.id !== id))
+  }
 
   return (
     <div>
@@ -229,6 +235,10 @@ function AdminFraud() {
           <span style={{ color: 'var(--red)', fontSize: 12 }}>{f.typeFraude}</span>,
           <ScoreBar score={f.scoreAnomalie} />,
           f.detectedAt ? new Date(f.detectedAt).toLocaleDateString('en-GB') : '—',
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => navigate(`/orders/${f.orderId}`)}>View order</button>
+            <button className="btn btn-gold" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => markFP(f.id)}>Mark false-positive</button>
+          </div>
         ])}
       />
     </div>

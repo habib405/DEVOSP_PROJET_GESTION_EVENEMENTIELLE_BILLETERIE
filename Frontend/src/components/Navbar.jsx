@@ -46,6 +46,7 @@ export default function Navbar() {
           <NavLink to="/events" active={isActive('/events')}>Events</NavLink>
           {user && !isOrganizer && <NavLink to="/my-tickets" active={isActive('/my-tickets')}>My Tickets</NavLink>}
           {isAdmin && <NavLink to="/admin" active={isActive('/admin')}>Admin</NavLink>}
+          {isAdmin && <NavLink to="/admin/fraud" active={isActive('/admin/fraud')}>Fraud</NavLink>}
         </div>
 
         {/* Auth */}

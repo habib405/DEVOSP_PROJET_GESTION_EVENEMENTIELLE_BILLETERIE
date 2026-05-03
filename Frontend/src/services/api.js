@@ -106,9 +106,11 @@ export const checkinsAPI = {
 // ─── FRAUD ───────────────────────────────────────────────────────────────────
 export const fraudAPI = {
   getAll: () => api.get('/fraud'),
+  getPending: (page = 0, size = 20) => api.get('/fraud/pending-review', { params: { page, size } }),
   getByOrder: (orderId) => api.get(`/fraud/order/${orderId}`),
   getById: (id) => api.get(`/fraud/${id}`),
   create: (data) => api.post('/fraud', data),
+  markFalsePositive: (id, comment) => api.post(`/fraud/${id}/false-positive`, null, { params: { comment } }),
 }
 
 export default api
