@@ -1,23 +1,29 @@
 package com.projet.billeterie.back.service;
 
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.client.j2se.MatrixToImageWriter;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
-import com.projet.billeterie.back.entity.*;
-import com.projet.billeterie.back.exception.ResourceNotFoundException;
-import com.projet.billeterie.back.repository.EventRepository;
-import com.projet.billeterie.back.repository.RegistrationRepository;
-import com.projet.billeterie.back.repository.TicketTypeRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import com.projet.billeterie.back.entity.Event;
+import com.projet.billeterie.back.entity.Order;
+import com.projet.billeterie.back.entity.Registration;
+import com.projet.billeterie.back.entity.RegistrationStatus;
+import com.projet.billeterie.back.entity.TicketType;
+import com.projet.billeterie.back.exception.ResourceNotFoundException;
+import com.projet.billeterie.back.repository.EventRepository;
+import com.projet.billeterie.back.repository.RegistrationRepository;
+import com.projet.billeterie.back.repository.TicketTypeRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -29,31 +35,30 @@ public class RegistrationService {
     private final EventRepository eventRepository;
 
     /**
-     * Creates one Registration per ticket-type ID and generates its QR code.
-     * Called after order is CONFIRMED.
+     * Valide les Registrations en attente pour une commande confirmée et génère les QR codes.
      */
     @Transactional
-    public List<Registration> createForOrder(Order order, List<UUID> ticketTypeIds) {
-        return ticketTypeIds.stream().map(ttId -> {
-            TicketType tt = ticketTypeRepository.findById(ttId)
-                    .orElseThrow(() -> new ResourceNotFoundException("TicketType not found: " + ttId));
+    public List<Registration> confirmRegistrationsForOrder(Order order) {
+        // On récupère les billets réservés lors de la création de la commande
+        List<Registration> registrations = registrationRepository.findByOrderId(order.getId());
 
-            String qrContent = "order:" + order.getId() + "|ticket:" + ttId + "|user:" + order.getUserId();
-            String qrBase64 = generateQrCodeBase64(qrContent);
+        for (Registration reg : registrations) {
+            // Génération du QR Code
+            String qrContent = "order:" + order.getId() + "|ticket:" + reg.getTicketType().getId() + "|user:" + order.getUserId();
+            reg.setQrCode(generateQrCodeBase64(qrContent));
+            
+            // Passage au statut CONFIRMED
+            reg.setStatus(RegistrationStatus.CONFIRMED);
 
-            Registration reg = Registration.builder()
-                    .orderId(order.getId())
-                    .userId(order.getUserId())
-                    .eventId(tt.getEvent().getId())
-                    .ticketType(tt)
-                    .status(RegistrationStatus.CONFIRMED)
-                    .qrCode(qrBase64)
-                    .build();
+            // C'est seulement maintenant qu'on incrémente les participants de l'événement (le paiement est validé)
+            Event event = reg.getTicketType().getEvent();
+            event.setCurrentAttendees(event.getCurrentAttendees() + 1);
+            eventRepository.save(event);
 
-            return registrationRepository.save(reg);
-        }).toList();
+            registrationRepository.save(reg);
+        }
+        return registrations;
     }
-
     public List<Registration> findByUser(UUID userId) {
         return registrationRepository.findByUserId(userId);
     }

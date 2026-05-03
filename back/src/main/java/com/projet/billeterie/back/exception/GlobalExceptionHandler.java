@@ -1,17 +1,24 @@
 package com.projet.billeterie.back.exception;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    // À ajouter dans GlobalExceptionHandler.java
+    
+    @ExceptionHandler(FraudDetectedException.class)
+    public ResponseEntity<Map<String, Object>> handleFraudDetected(FraudDetectedException ex) {
+        // Renvoie une erreur 403 Forbidden avec le message personnalisé
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {

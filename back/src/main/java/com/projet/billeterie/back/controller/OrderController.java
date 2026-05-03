@@ -1,19 +1,27 @@
 package com.projet.billeterie.back.controller;
 
-import com.projet.billeterie.back.dto.OrderRequest;
-import com.projet.billeterie.back.entity.Order;
-import com.projet.billeterie.back.entity.User;
-import com.projet.billeterie.back.service.OrderService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.UUID;
+import com.projet.billeterie.back.dto.OrderRequest;
+import com.projet.billeterie.back.entity.Order;
+import com.projet.billeterie.back.entity.User;
+import com.projet.billeterie.back.service.OrderService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Order lifecycle:
@@ -49,10 +57,9 @@ public class OrderController {
     }
 
     @PatchMapping("/{id}/confirm")
-    public Order confirm(@PathVariable UUID id, @Valid @RequestBody OrderRequest request) {
-        return orderService.confirm(id, request);
+    public Order confirm(@PathVariable UUID id) { // <- Retirer le @RequestBody
+        return orderService.confirm(id);
     }
-
     @PatchMapping("/{id}/cancel")
     public Order cancel(@PathVariable UUID id) {
         return orderService.cancel(id);

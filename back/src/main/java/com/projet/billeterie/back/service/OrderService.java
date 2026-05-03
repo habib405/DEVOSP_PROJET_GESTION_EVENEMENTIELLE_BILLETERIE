@@ -1,19 +1,26 @@
 package com.projet.billeterie.back.service;
 
-import com.projet.billeterie.back.dto.OrderRequest;
-import com.projet.billeterie.back.entity.*;
-import com.projet.billeterie.back.exception.ResourceNotFoundException;
-import com.projet.billeterie.back.repository.EventRepository;
-import com.projet.billeterie.back.repository.OrderRepository;
-import com.projet.billeterie.back.repository.TicketTypeRepository;
-import com.projet.billeterie.back.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
+import com.projet.billeterie.back.dto.OrderRequest;
+import com.projet.billeterie.back.entity.Order;
+import com.projet.billeterie.back.entity.OrderStatus;
+import com.projet.billeterie.back.entity.Registration;
+import com.projet.billeterie.back.entity.RegistrationStatus;
+import com.projet.billeterie.back.entity.TicketType;
+import com.projet.billeterie.back.exception.ResourceNotFoundException;
+import com.projet.billeterie.back.repository.EventRepository;
+import com.projet.billeterie.back.repository.OrderRepository;
+import com.projet.billeterie.back.repository.RegistrationRepository;
+import com.projet.billeterie.back.repository.TicketTypeRepository;
+import com.projet.billeterie.back.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Manages the full order lifecycle:
@@ -32,36 +39,61 @@ public class OrderService {
     private final TicketTypeRepository ticketTypeRepository;
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
-    private final RegistrationService registrationService;
+        private final RegistrationService registrationService;
+        private final RegistrationRepository registrationRepository;
     private final EmailNotificationService emailService;
     private final InvoiceService invoiceService;
+    private final FraudMonitoringService fraudMonitoringService;
 
-    // ── 1. CRÉATION ──────────────────────────────────────────────────────────
-
+    // ── 1. CRÉATION ────────────────────────────────────────────────────────
     @Transactional
     public Order create(OrderRequest request, UUID userId) {
-        List<TicketType> ticketTypes = request.getTicketTypeIds().stream()
-                .map(ttId -> ticketTypeRepository.findById(ttId)
-                        .orElseThrow(() -> new ResourceNotFoundException("TicketType not found: " + ttId)))
-                .toList();
-
-        for (TicketType tt : ticketTypes) {
-            if (!tt.isAvailable()) {
-                throw new IllegalStateException("TicketType '" + tt.getName() + "' is sold out.");
-            }
-        }
-
-        float total = (float) ticketTypes.stream().mapToDouble(TicketType::getPrice).sum();
-
+        float total = 0.0f;
+        
+        // 1. On crée d'abord l'entité Order (PENDING) pour avoir son ID
         Order order = Order.builder()
                 .userId(userId)
-                .totalAmount(total)
+                .totalAmount(0.0f) // Sera mis à jour juste après
                 .status(OrderStatus.PENDING)
                 .build();
+        order = orderRepository.save(order);
 
-        return orderRepository.save(order);
+        // 2. On boucle sur les billets demandés avec notre nouveau système de verrou !
+        for (UUID ttId : request.getTicketTypeIds()) {
+            // On utilise findByIdWithLock pour empêcher les accès concurrents
+            TicketType tt = ticketTypeRepository.findByIdWithLock(ttId)
+                    .orElseThrow(() -> new ResourceNotFoundException("TicketType not found: " + ttId));
+
+            if (!tt.isAvailable()) {
+                throw new IllegalStateException("Le billet '" + tt.getName() + "' est épuisé.");
+            }
+
+            // 3. ON RÉSERVE IMMÉDIATEMENT LE STOCK
+            tt.setSoldQuantity(tt.getSoldQuantity() + 1);
+            ticketTypeRepository.save(tt);
+            
+            // 4. On crée une Registration (Billet) en statut PENDING (sans QR code pour le moment)
+            Registration reg = Registration.builder()
+                    .orderId(order.getId())
+                    .userId(userId)
+                    .eventId(tt.getEvent().getId())
+                    .ticketType(tt)
+                    .status(RegistrationStatus.PENDING) 
+                    .build();
+            registrationRepository.save(reg);
+
+            total += tt.getPrice();
+        }
+
+        // 5. On met à jour le montant final de la commande
+        order.setTotalAmount(total);
+        order = orderRepository.save(order);
+
+        // 6. Analyse anti-fraude que nous avons mise en place
+        fraudMonitoringService.analyzeOrder(order);
+
+        return order;
     }
-
     // ── 2. VERROUILLAGE ──────────────────────────────────────────────────────
 
     @Transactional
@@ -81,76 +113,58 @@ public class OrderService {
     }
 
     // ── 4. VALIDATION (paiement reçu) ────────────────────────────────────────
+// ── 4. VALIDATION (paiement reçu) ────────────────────────────────────────
 
     @Transactional
-    public Order confirm(UUID orderId, OrderRequest originalRequest) {
+    public Order confirm(UUID orderId) { // <- Plus besoin de OrderRequest !
         Order order = getOrder(orderId);
         order.confirm();
         orderRepository.save(order);
 
-        // Create registrations with QR codes
-        List<Registration> registrations = registrationService.createForOrder(order, originalRequest.getTicketTypeIds());
-
-        // Update sold quantities and attendee counts
-        originalRequest.getTicketTypeIds().forEach(ttId -> {
-            TicketType tt = ticketTypeRepository.findById(ttId)
-                    .orElseThrow(() -> new ResourceNotFoundException("TicketType not found: " + ttId));
-            tt.setSoldQuantity(tt.getSoldQuantity() + 1);
-            ticketTypeRepository.save(tt);
-
-            Event event = tt.getEvent();
-            event.setCurrentAttendees(event.getCurrentAttendees() + 1);
-            eventRepository.save(event);
-        });
+        // On valide les billets PENDING et on génère les QR codes
+        List<Registration> registrations = registrationService.confirmRegistrationsForOrder(order);
 
         // Async email notifications + PDF invoice
         userRepository.findById(order.getUserId()).ifPresent(user -> {
             String fullName = user.getFirstName() + " " + user.getLastName();
 
-            emailService.sendOrderConfirmation(
-                    user.getEmail(),
-                    fullName,
-                    order.getId().toString(),
-                    order.getTotalAmount()
-            );
+            emailService.sendOrderConfirmation(user.getEmail(), fullName, order.getId().toString(), order.getTotalAmount());
 
-            // Generate PDF invoice and send attached
             try {
-                byte[] invoicePdf = invoiceService.generate(order, user, originalRequest.getTicketTypeIds());
-                emailService.sendInvoiceEmail(
-                        user.getEmail(),
-                        fullName,
-                        order.getId().toString(),
-                        order.getTotalAmount(),
-                        invoicePdf
-                );
+                // On récupère la liste des IDs de billets depuis nos registrations pour la facture
+                List<UUID> ticketTypeIds = registrations.stream().map(r -> r.getTicketType().getId()).toList();
+                byte[] invoicePdf = invoiceService.generate(order, user, ticketTypeIds);
+                
+                emailService.sendInvoiceEmail(user.getEmail(), fullName, order.getId().toString(), order.getTotalAmount(), invoicePdf);
             } catch (Exception ex) {
                 log.error("Could not generate/send invoice for order {}: {}", order.getId(), ex.getMessage());
             }
 
             registrations.forEach(reg ->
                     emailService.sendRegistrationConfirmation(
-                            user.getEmail(),
-                            fullName,
-                            reg.getTicketType().getEvent().getTitle(),
-                            order.getId().toString(),
-                            order.getTotalAmount(),
-                            reg.getQrCode()
+                            user.getEmail(), fullName, reg.getTicketType().getEvent().getTitle(),
+                            order.getId().toString(), order.getTotalAmount(), reg.getQrCode()
                     )
             );
         });
 
         return order;
     }
-
     // ── ANNULATION ───────────────────────────────────────────────────────────
 
-    @Transactional
+   @Transactional
     public Order cancel(UUID orderId) {
         Order order = getOrder(orderId);
+        
+        // On annule tous les billets liés à cette commande (ce qui libère le stock via ton RegistrationService)
+        List<Registration> registrations = registrationService.findByOrder(orderId);
+        registrations.forEach(reg -> registrationService.cancel(reg.getId()));
+        
+        // On annule la commande et on sauvegarde
         order.cancel();
         orderRepository.save(order);
 
+        // Envoi de l'email d'annulation
         userRepository.findById(order.getUserId()).ifPresent(user ->
                 emailService.sendOrderCancellation(
                         user.getEmail(),
@@ -158,9 +172,9 @@ public class OrderService {
                         order.getId().toString()
                 )
         );
+        
         return order;
     }
-
     // ── REMBOURSEMENT ─────────────────────────────────────────────────────────
 
     @Transactional

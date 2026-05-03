@@ -1,12 +1,12 @@
 package com.projet.billeterie.back.dto;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Data
 public class EventRequest {
@@ -15,5 +15,5 @@ public class EventRequest {
     @NotNull private LocalDateTime startDate;
     @NotNull private LocalDateTime endDate;
     @Positive private int maxCapacity;
-    @NotNull private UUID venueId;
+    private UUID venueId;
 }

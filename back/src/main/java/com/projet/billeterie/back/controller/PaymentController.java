@@ -1,9 +1,18 @@
 package com.projet.billeterie.back.controller;
 
+import java.util.UUID;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.projet.billeterie.back.dto.CheckoutRequest;
 import com.projet.billeterie.back.dto.CheckoutResponse;
 import com.projet.billeterie.back.dto.FinalizePaymentResponse;
-import com.projet.billeterie.back.dto.OrderRequest;
 import com.projet.billeterie.back.entity.Order;
 import com.projet.billeterie.back.entity.OrderStatus;
 import com.projet.billeterie.back.entity.User;
@@ -13,17 +22,10 @@ import com.projet.billeterie.back.service.OrderService;
 import com.projet.billeterie.back.service.StripeService;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Stripe Checkout (sandbox) flow.
@@ -87,17 +89,11 @@ public class PaymentController {
 
         String paymentStatus = session.getPaymentStatus(); // "paid", "unpaid", "no_payment_required"
 
-        if ("paid".equalsIgnoreCase(paymentStatus)) {
+       if ("paid".equalsIgnoreCase(paymentStatus)) {
             // Idempotency: only confirm if not already confirmed
             if (order.getStatus() != OrderStatus.CONFIRMED) {
-                List<UUID> ticketTypeIds = Arrays.stream(ttIdsStr.split(","))
-                        .filter(s -> !s.isBlank())
-                        .map(UUID::fromString)
-                        .collect(Collectors.toList());
-
-                OrderRequest req = new OrderRequest();
-                req.setTicketTypeIds(ticketTypeIds);
-                order = orderService.confirm(orderId, req);
+                // Plus besoin de reconstruire un OrderRequest ici !
+                order = orderService.confirm(orderId);
                 log.info("Order {} confirmed via Stripe session {}", orderId, sessionId);
             }
         } else {
