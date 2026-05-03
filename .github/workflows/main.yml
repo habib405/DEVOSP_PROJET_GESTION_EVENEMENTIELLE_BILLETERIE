@@ -1,0 +1,35 @@
+name: CI/CD Pipeline - Déploiement AWS
+
+on:
+  push:
+    branches:
+      - main  # Remplace par 'SCRUM-16-...' si tu veux tester sur ta branche actuelle
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name:  Connexion SSH et Déploiement sur EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          # Ces commandes seront exécutées directement sur ton serveur AWS
+          script: |
+            cd DEVOSP_PROJET_GESTION_EVENEMENTIELLE_BILLETERIE
+            
+            # 1. Récupérer le dernier code
+            git pull origin main
+            
+            # 2. Injecter les clés secrètes dans un fichier .env sur le serveur
+            echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" > .env
+            echo "STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}" >> .env
+            
+            # 3. Reconstruire et relancer les conteneurs (si tu utilises Docker Compose)
+            # (Si tu es passé full Kubernetes, remplace par "kubectl apply -f k8s/")
+            docker compose down
+            docker compose up --build -d
+            
+            echo "Déploiement terminé avec succès !"
