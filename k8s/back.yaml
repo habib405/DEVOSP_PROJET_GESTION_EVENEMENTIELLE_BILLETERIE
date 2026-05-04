@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: back
+  namespace: billetterie # Crucial pour rejoindre postgres
 spec:
   replicas: 1
   selector:
@@ -15,7 +16,6 @@ spec:
       containers:
         - name: back
           image: habibdiao405/projet-back:latest
-         
           ports:
             - containerPort: 8081
           env:
@@ -30,18 +30,21 @@ spec:
             - name: STRIPE_PUBLISHABLE_KEY
               value: "pk_test_51TSHJbAuRLwOSs0NkHYDlaxeHQ6nSDAogfsLMCtz8vBWhB5Ww2sIkd495ank8tPJQCTQt1rcnjWIod8Tscy0Eiz600iM8BgnGW"
             - name: STRIPE_SUCCESS_URL
-              value: "http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}"
+              value: "http://16.16.196.41:30000/payment/success" # IP AWS au lieu de localhost
             - name: STRIPE_CANCEL_URL
-              value: "http://localhost:3000/payment/cancel"
+              value: "http://16.16.196.41:30000/payment/cancel"
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: back
+  namespace: billetterie
 spec:
   selector:
     app: back
   ports:
-    - port: 8081
+    - protocol: TCP
+      port: 8081
       targetPort: 8081
-  type: ClusterIP
+      nodePort: 30001 # On expose le backend sur le port 30001
+  type: NodePort # Changé de ClusterIP à NodePort pour l'accès externe
