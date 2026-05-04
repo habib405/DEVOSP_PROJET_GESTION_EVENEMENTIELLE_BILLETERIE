@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: back
-          image: devosp_projet_gestion_evenementielle_billeterie-back:latest
+          image: habibdiao405/projet-back:latest
          
           ports:
             - containerPort: 8081
