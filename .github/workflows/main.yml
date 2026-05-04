@@ -5,27 +5,30 @@ on:
     branches:
       - main  # Le pipeline se lance quand tu push sur main
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Fait taire le warning Node.js 20
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v4 # <-- CORRIGÉ : v4 pour enlever le warning Node.js
+        uses: actions/checkout@v4
 
       - name: Connexion à Docker Hub
-        uses: docker/login-action@v3 # <-- CORRIGÉ : v3 pour enlever le warning
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build et Push Backend
         run: |
-          docker build -t habibdiao405/projet-back:latest ./back # <-- CORRIGÉ : dossier 'back' (pas 'backend')
+          docker build -t habibdiao405/projet-back:latest ./back
           docker push habibdiao405/projet-back:latest
 
       - name: Build et Push Frontend
         run: |
-          docker build -t habibdiao405/projet-frontend:latest ./Frontend # <-- CORRIGÉ : dossier 'Frontend' avec un grand 'F'
+          docker build -t habibdiao405/projet-frontend:latest ./Frontend
           docker push habibdiao405/projet-frontend:latest
 
   deploy-to-aws:
@@ -33,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v4 # <-- CORRIGÉ : v4
+        uses: actions/checkout@v4
 
       - name: Déploiement sur AWS via SSH
         uses: appleboy/ssh-action@master
@@ -42,15 +45,18 @@ jobs:
           username: ubuntu
           key: ${{ secrets.AWS_SSH_KEY }}
           script: |
-            # On se déplace dans le dossier du projet sur le serveur
             cd /home/ubuntu/DEVOSP_PROJET_GESTION_EVENEMENTIELLE_BILLETERIE
             
-            # On récupère les derniers fichiers YAML (k8s/)
-            git pull origin main
+            # 1. On force le serveur à être EXACTEMENT comme GitHub (zéro conflit)
+            git fetch origin main
+            git reset --hard origin/main
             
-            # On applique la configuration Kubernetes
-            kubectl apply -f k8s/
+            # 2. On s'assure que le namespace existe pour le projet
+            kubectl create namespace billetterie || true
             
-            # On force le redémarrage pour charger les nouvelles images dans le bon namespace
-            kubectl rollout restart deployment back -n billetterie # <-- CORRIGÉ : ajout du namespace
-            kubectl rollout restart deployment front -n billetterie # <-- CORRIGÉ : ajout du namespace et retrait des "??"
+            # 3. On applique la configuration DANS le namespace billetterie
+            kubectl apply -f k8s/ -n billetterie
+            
+            # 4. On force le rechargement des nouvelles images
+            kubectl rollout restart deployment back -n billetterie
+            kubectl rollout restart deployment front -n billetterie
