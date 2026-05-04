@@ -10,22 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # <-- CORRIGÉ : v4 pour enlever le warning Node.js
 
       - name: Connexion à Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3 # <-- CORRIGÉ : v3 pour enlever le warning
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build et Push Backend
         run: |
-          docker build -t habibdiao405/projet-back:latest ./backend
+          docker build -t habibdiao405/projet-back:latest ./back # <-- CORRIGÉ : dossier 'back' (pas 'backend')
           docker push habibdiao405/projet-back:latest
 
       - name: Build et Push Frontend
         run: |
-          docker build -t habibdiao405/projet-frontend:latest ./frontend
+          docker build -t habibdiao405/projet-frontend:latest ./Frontend # <-- CORRIGÉ : dossier 'Frontend' avec un grand 'F'
           docker push habibdiao405/projet-frontend:latest
 
   deploy-to-aws:
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # <-- CORRIGÉ : v4
 
       - name: Déploiement sur AWS via SSH
         uses: appleboy/ssh-action@master
@@ -49,9 +49,8 @@ jobs:
             git pull origin main
             
             # On applique la configuration Kubernetes
-            # K3s utilise souvent la commande 'k3s kubectl' ou juste 'kubectl'
             kubectl apply -f k8s/
             
-            # On force le redémarrage pour charger les nouvelles images
-            kubectl rollout restart deployment back
-            kubectl rollout restart deployment front
+            # On force le redémarrage pour charger les nouvelles images dans le bon namespace
+            kubectl rollout restart deployment back -n billetterie # <-- CORRIGÉ : ajout du namespace
+            kubectl rollout restart deployment front -n billetterie # <-- CORRIGÉ : ajout du namespace et retrait des "??"
