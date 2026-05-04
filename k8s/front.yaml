@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: front
-          image: devosp_projet_gestion_evenementielle_billeterie-frontend:latest
+          image: habibdiao405/projet-frontend:latest
           
           ports:
             - containerPort: 3000
